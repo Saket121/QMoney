@@ -1,0 +1,79 @@
+
+plugins {
+    id 'java'
+    id 'maven-publish'
+}
+
+ext {
+    buildId = System.currentTimeMillis()
+}
+
+buildDir = '/tmp/external_build'
+    
+
+version '1.0-SNAPSHOT'
+
+sourceCompatibility = 11
+
+repositories {
+    mavenLocal()
+    mavenCentral()
+}
+
+task installGitHooks(type: Copy) {
+    from new File(rootProject.rootDir, "__CRIO__/pre-push")
+    into { new File(rootProject.rootDir, ".git/hooks") }
+    fileMode 0777
+}
+
+
+allprojects {
+    buildDir = '/tmp/external_build'
+}
+
+subprojects {
+    apply plugin: "java-library"
+
+    configurations {
+        compileOnly {
+            extendsFrom annotationProcessor
+        }
+    }
+
+    repositories {
+        mavenCentral()
+    }
+
+    test {
+        reports {
+            junitXml.enabled = true
+            def destinationDirectory = System.getProperty("user.home") + "/.gradle/daemon/${buildId}/test-results"
+            junitXml.destination = file(destinationDirectory)
+            html.enabled = true
+        }
+        useJUnitPlatform {
+        }
+        testLogging.events ("STANDARD_ERROR")
+        testLogging.events ("STANDARD_OUT")
+        afterSuite { desc, result ->
+            if (!desc.parent) {
+                println "\nTEST RESULT: ${result.resultType}"
+                println "TEST SUMMARY: RAN ${result.testCount} TESTS, " +
+                        "${result.successfulTestCount} SUCCEEDED, " +
+                        "${result.failedTestCount} FAILED, " +
+                        "${result.skippedTestCount} SKIPPED"
+            }
+        }
+    }
+
+    task installGitHooks(type: Copy) {
+        from new File(rootProject.rootDir, '__CRIO__/pre-push')
+        into { new File(rootProject.rootDir, '.git/hooks') }
+        fileMode 0777
+    }
+
+    build.dependsOn installGitHooks
+}
+
+compileJava.dependsOn clean
+
